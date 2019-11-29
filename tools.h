@@ -1,5 +1,5 @@
 #ifndef NSPT_TOOLS
-#define NSPT_TOLLS
+#define NSPT_TOOLS
 
 #include <stddef.h>
 
