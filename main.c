@@ -17,7 +17,7 @@ static void cmd_buf_init()
 {
 	assert(cmd_buf == NULL);
 
-	/*Init command and parse buffer*/
+	/*Init command buffer*/
 	errno = 0;
 	if ((cmd_buf_len = sysconf(_SC_LINE_MAX)) == -1) {
 		if (errno != 0) {

@@ -35,6 +35,9 @@ void tty_cbreak() /* put terminal into a cbreak mode */
 	if (!inited)
 		*save_term = buf;
 	buf.c_lflag &= ~(ECHO | ICANON);
+	buf.c_lflag &= ISIG;
+	buf.c_iflag &= ~(IGNCR | INLCR);
+	buf.c_iflag &= ICRNL | IXOFF | IXON;
 	buf.c_cc[VMIN] = 1;
 	buf.c_cc[VTIME] = 0;
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) != 0) {
