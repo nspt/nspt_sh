@@ -19,17 +19,6 @@
 
 int sigchld_handler_pipe[2] = {-1, -1};
 
-#define discard_line_remain() \
-	do {\
-		while(getchar() != '\n');\
-	} while(0)
-#define output_prompt() \
-	do {\
-		assert(sh_env != NULL);\
-		fprintf(stdout, sh_env->prompt_format, sh_env->user_info.pw_name, sh_env->sys_info.nodename, sh_env->cwd);\
-	} while(0)
-
-#define CMD_MAX_LEN_GUESS     2048
 #define PATH_MAX_LEN_GUESS    1024
 #define BG_LIST_ORIG_MAX      10
 
@@ -43,8 +32,8 @@ struct job_info {
 static struct job_info exited_job = {'e', 0, 0, NULL};
 
 static struct nspt_sh_env {
-	char *input_cmd, *cwd;
-	long cmd_len_max, cwd_len_max;
+	char *cwd;
+	long cwd_len_max;
 	char *prompt_format;
 	struct utsname sys_info;
 	struct passwd user_info;
@@ -69,27 +58,10 @@ static void init_job_ctl()
 	sh_env->fg_job.cmd = NULL;
 }
 
-static void init_buf()
+static void init_cwd_buf()
 {
 	assert(sh_env != NULL
-		&& sh_env->input_cmd == NULL
 		&& sh_env->cwd == NULL);
-
-	/*Init command and parse buffer*/
-	errno = 0;
-	if ((sh_env->cmd_len_max = sysconf(_SC_LINE_MAX)) == -1) {
-		if (errno != 0) {
-			syslog(LOG_ERR, "Can't get limit: _SC_LINE_MAX: %m");
-			exit(EXIT_FAILURE);
-		}
-		sh_env->cmd_len_max = CMD_MAX_LEN_GUESS;
-	}
-	if (sh_env->cmd_len_max > INT_MAX)
-		sh_env->cmd_len_max = INT_MAX; // because cmd_len_max will be used for fgets(), which require a int type length
-	if ((sh_env->input_cmd = malloc(sh_env->cmd_len_max)) == NULL) {
-		syslog(LOG_ERR, "Can't allocate command buffer: %m");
-		exit(EXIT_FAILURE);
-	}
 
 	/*Init current working dir(cwd) buffer*/
 	errno = 0;
@@ -140,13 +112,8 @@ void env_init()
 		exit(EXIT_FAILURE);
 	}
 
-	if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)) {
-		syslog(LOG_ERR, "stdin or stdout is not a terminal");
-		exit(EXIT_FAILURE);
-	}
-
 	init_job_ctl();
-	init_buf();
+	init_cwd_buf();
 	init_user_info();
 	init_sys_info();
 	set_sig_process();
@@ -162,56 +129,6 @@ void env_init()
 	}
 
 	do_cmd("cd");
-}
-
-/*
- * read command from stdin
- * if success
- *     return command length
- *     *input_cmd will point to command buffer, which contains input command
- *     *err will be 0
- * if command is too long
- *     return 1
- *     *input_cmd will be NULL
- *     *err will be 0
- * if failed with error occurred
- *     return 0
- *     *input_cmd will be NULL
- *     *err will be the value of errno
- * if read EOF
- *     return 0
- *     *input_cmd will be NULL
- *     *err will be 0
- */
-size_t get_input_cmd(const char **input_cmd, int *err)
-{
-	assert(sh_env != NULL && sh_env->input_cmd != NULL);
-
-	size_t input_length = 0;
-	*input_cmd = NULL;
-	*err = 0;
-
-	update_job_state(1, NULL, 0);
-	output_prompt();
-	errno = 0;
-	if (fgets(sh_env->input_cmd, sh_env->cmd_len_max, stdin) != NULL) { //read success
-		input_length = strlen(sh_env->input_cmd);
-		if (input_length == sh_env->cmd_len_max - 1
-				&& sh_env->input_cmd[input_length - 1] != '\n') { //command too long
-			fprintf(stderr, "Command is too long\n");
-			discard_line_remain();
-			return 1;
-		}
-		strip_space(sh_env->input_cmd, &input_length);
-		*input_cmd = sh_env->input_cmd;
-		return input_length == 0 ? 1 : input_length; //input_cmd may only contain '\n', and we stripped it
-	} else if (errno != 0) { //read fail
-		*err = errno;
-		return 0;
-	}
-
-	//EOF
-	return 0;
 }
 
 int is_bgpgid(pid_t pgid, size_t *index)
@@ -480,4 +397,10 @@ void output_jobs()
 				break;
 		}
 	}
+}
+
+void output_prompt()
+{
+	assert(sh_env != NULL);
+	fprintf(stdout, sh_env->prompt_format, sh_env->user_info.pw_name, sh_env->sys_info.nodename, sh_env->cwd);
 }

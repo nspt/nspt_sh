@@ -10,7 +10,6 @@ struct job_state {
 };
 
 void env_init();
-size_t get_input_cmd(const char **input_cmd, int *err);
 void update_cwd();
 const char *get_home_dir();
 int is_bgpgid(pid_t pgid, size_t *index);
@@ -20,6 +19,7 @@ void set_bg_job(pid_t pgid, const char *cmd, int option);
 void fg2bg();
 void output_jobs();
 int bg2fg(pid_t pgid);
+void output_prompt();
 
 /* this pipe is use for communication between SIGCHLD handler and normal process
  * SIGCHLD handler write child process(group) status to sigchld_handler_pipe[1]

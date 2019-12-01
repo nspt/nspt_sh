@@ -14,6 +14,7 @@
 #include "signal_handler.h"
 #include "sh_env.h"
 #include "tools.h"
+#include "tty_ctl.h"
 
 static pid_t execute_single_cmd(char **args, int bg)
 {
@@ -39,6 +40,8 @@ static pid_t execute_single_cmd(char **args, int bg)
 				_exit(EXIT_FAILURE);
 			}
 			reset_sig_process();
+			if (!bg)
+				tty_reset();
 			execvp(cmd, args);
 			perror(cmd);
 			_exit(127);
@@ -115,9 +118,11 @@ pid_t execute_cmd(char **cmd_list, const size_t last_idx, size_t cur_idx, int ou
 				syslog(LOG_ERR, "Can't hand over terminal to child: %m");
 				_exit(EXIT_FAILURE);
 			}
-			write(pipe_tc[1], "y", 1);
-			dup2(pipe_fd[0], STDIN_FILENO);
+			if (!bg)
+				tty_reset();
 			reset_sig_process();
+			dup2(pipe_fd[0], STDIN_FILENO);
+			write(pipe_tc[1], "y", 1);
 			execvp(cmd, args);
 			perror(cmd);
 			_exit(127);
@@ -220,6 +225,7 @@ void do_cmd(const char *input_cmd)
 			syslog(LOG_ERR, "Can't hand over terminal to parent: %m");
 			exit(EXIT_FAILURE);
 		}
+		tty_cbreak();
 	} else if (job.pgid != 0) {
 		set_bg_job(job.pgid, input_cmd, BG_ADD);
 	}

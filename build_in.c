@@ -11,6 +11,8 @@
 #include <signal.h>
 #include "exec_cmd.h"
 #include "sh_env.h"
+#include "tools.h"
+#include "tty_ctl.h"
 
 static int build_in_cd(char **argv);
 static int build_in_type(char **argv);
@@ -138,6 +140,7 @@ static int build_in_fg(char **argv)
 	} else if (tcsetpgrp(STDIN_FILENO, job.pgid) != 0) {
 		syslog(LOG_ERR, "Can't hand over terminal to job: %lu :%m", (unsigned long)job.pgid);
 	}
+	tty_reset();
 	kill(-job.pgid, SIGCONT);
 	while (1) {
 		sigsuspend(&wait_chld_mask);
@@ -150,6 +153,7 @@ static int build_in_fg(char **argv)
 		syslog(LOG_ERR, "Can't hand over terminal to parent: %m");
 		exit(EXIT_FAILURE);
 	}
+	tty_cbreak();
 	sigprocmask(SIG_SETMASK, &oldmask, NULL);
 	return 0;
 }
